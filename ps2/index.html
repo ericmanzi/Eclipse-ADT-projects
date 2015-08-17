@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+
+<!--
+  COLLABORATORS: None. I did not collaborate with anyone on this pset.
+  
+-->
+<html>
+
+<head>
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+<title>Checkerboard</title>
+
+<!-- Load style sheets -->
+<link rel="stylesheet" type="text/css" href="mainLayout.css" />
+
+<!-- Load any supplemental Javascript libraries here -->
+<script type="text/javascript" src="external_js/jquery-1.9.0.min.js"></script>
+<script type="text/javascript" src="checker.js"></script>
+<script type="text/javascript" src="boardEvent.js"></script>
+<script type="text/javascript" src="board.js"></script>
+<script type="text/javascript" src="rules.js"></script>
+<script type="text/javascript">
+
+//This script extracts parameters from the URL
+//from jquery-howto.blogspot.com
+
+    $.extend({
+        getUrlVars : function() {
+            var vars = [], hash;
+            var hashes = window.location.href.slice(
+                    window.location.href.indexOf('?') + 1).split('&');
+            for ( var i = 0; i < hashes.length; i++) {
+                hash = hashes[i].split('=');
+                vars.push(hash[0]);
+                vars[hash[0]] = hash[1];
+            }
+            return vars;
+        },
+        getUrlVar : function(name) {
+            return $.getUrlVars()[name];
+        }
+    });
+
+    var DEFAULT_BOARD_SIZE = 8;
+
+    //data model
+    var board;
+    var rules;
+    var whoseTurn = "black";
+
+    var directionOf = function(color) {
+      if (color == "black") {
+        return -1;
+      }
+      return 1;
+    }
+
+    // Fill in this function to toggle the display for whose turn
+    // The color parameter should be either "black" or "red"
+    var toggleTurn = function(color) {
+	// Your code here
+    
+        if(whoseTurn === "black") {
+            $("#turn").text("Red Turn"); //change text to show current player
+            $("#turn").css('background','red'); //change color
+            whoseTurn = "red";
+        } else if(whoseTurn==="red") {
+            $("#turn").text("Black Turn");
+            $("#turn").css('background','black');
+            whoseTurn = "black";
+        }
+    }
+
+    //past moves
+    window.pastMoves = new Array();
+    window.undoneMoves = new Array();
+
+
+    // This allows the Javascript code inside this block to only run when the page
+    // has finished loading in the browser.
+    $(document).ready(function() {
+        
+
+        if ($.getUrlVar('size') && $.getUrlVar('size') >= 6) {
+            board = new Board($.getUrlVar('size'));
+        } else {
+            board = new Board(DEFAULT_BOARD_SIZE);
+        }
+
+
+	rules = new Rules(board);
+
+     	// Your code here
+        var canvas = document.getElementById("the_arrow");
+        var ctxt = canvas.getContext('2d');
+        //arrow drawing method "fillPoly" inspired by http://deepliquid.com/blog/archives/98
+        function arrow(x0, y0, x1, y1) {
+            var arrowhead = [ [ 0, 0 ] , [ -10, -6 ] , [ -10, 6] ];
+            ctxt.strokeStyle="yellow";
+            ctxt.lineWidth=2;
+            ctxt.beginPath();
+            ctxt.moveTo(x0,y0);
+            ctxt.lineTo(x1,y1);
+            ctxt.stroke();
+            var theta = Math.atan2(y1-y0,x1-x0);
+            fillPoly(arrowhead, theta, x1, y1);
+        }
+
+        function fillPoly(shape, theta, x1, y1) {
+            var rotatedShape=[];
+            //rotate shape
+            for (point in shape) {
+                //rotate point
+                rotatedpoint=[
+                (shape[point][0] * Math.cos(theta)) - (shape[point][1] * Math.sin(theta)),
+                (shape[point][0] * Math.sin(theta)) + (shape[point][1] * Math.cos(theta))
+                ]
+                rotatedShape.push(rotatedpoint);
+            }
+            //translate the rotated shape
+            var translatedShape=[];
+            for (point in rotatedShape) {
+                translatedShape.push([ rotatedShape[point][0] + x1, rotatedShape[point][1] + y1 ]);
+            }
+            ctxt.strokeStyle="yellow";
+            ctxt.beginPath();
+            ctxt.moveTo(translatedShape[0][0],translatedShape[0][1]);
+            for(p in translatedShape)
+                if (p > 0) ctxt.lineTo(translatedShape[p][0],translatedShape[p][1]);
+            ctxt.lineTo(translatedShape[0][0],translatedShape[0][1]);
+            ctxt.fillStyle="yellow";
+            ctxt.fill();
+        }
+        
+
+        //board is made of n divs (to represent the rows), each of which is n divs (to represent the columns in that row)
+        for (var y=0; y<board.size(); y++) {
+            var row = $("<div class='row'></div>");
+            for (var x=0; x<board.size();x++) {
+                $(row).append("<div class='cell'></div>");
+            } $('#boardcontent').append(row);
+        }
+        //size every square 400/size
+        $("#boardcontent .cell").css(
+            { width: (400/board.size()).toString()+"px",
+              height: (400/board.size()).toString()+"px"});
+
+        function addChecker(checker, row, col) {
+            var params = " class='checker' style='width: "+(400 / board.size()).toString()+"px; height: "+(400 / board.size()).toString()+"px;' />";
+            if (checker.isKing) {
+                if (checker.color=="red") { 
+                    var img = "<img src= 'graphics/red-king.png' ";
+                } else {
+                    var img = "<img src= 'graphics/black-king.png' ";
+                }
+            } else {
+                if (checker.color=="red") {
+                    var img = "<img src= 'graphics/red-piece.png' ";
+                } else {
+                    var img = "<img src= 'graphics/black-piece.png' ";
+                }
+            }
+            $(".row:nth-child("+(parseInt(row)+1)+") .cell:nth-child("+(parseInt(col)+1)+")").html(img.concat(params)); //add the image with the checker class
+        }
+        function removeChecker(row, col) {
+            $(".row:nth-child("+(parseInt(row)+1)+") .cell:nth-child("+(parseInt(col)+1)+")").html(""); //replace checker with empty string
+        }
+
+        board.addEventListener('add',function (e) {
+            addChecker(e.details.checker, e.details.row, e.details.col);
+    	},true);
+
+    	board.addEventListener('move',function (e) {
+            
+            removeChecker(e.details.fromRow, e.details.fromCol);
+            addChecker(e.details.checker, e.details.toRow, e.details.toCol);
+            //clear the canvas before drawing
+            ctxt.clearRect(0, 0, canvas.width, canvas.height);
+            ctxt.beginPath();
+            //get the locations of the square centers for the start cell and end cell
+            y0 = Math.round((parseInt(e.details.fromRow) + 0.5) * 400/board.size());
+            x0 = Math.round((parseInt(e.details.fromCol) + 0.5) * 400/board.size());
+            y1 = Math.round((parseInt(e.details.toRow) + 0.5) * 400/board.size());
+            x1 = Math.round((parseInt(e.details.toCol) + 0.5) * 400/board.size());
+            //draw the arrow from start to end points
+            arrow(x0, y0, x1, y1);
+            
+    	},true);
+
+        board.addEventListener('remove', function(e) {
+        	removeChecker(e.details.row, e.details.col);
+        },true);
+
+        board.addEventListener('promote',function (e) {
+    		// Your code here
+    	},true);
+
+        
+        $("#btnNewGame").click(function(evt) {
+            whoseTurn="black"; //black always starts
+            $("#turn").text("Black Turn");
+            $("#turn").css('background','black');
+            ctxt.clearRect(0, 0, canvas.width, canvas.height);
+            //re-initialize past moves array and undone moves array in new game
+            window.pastMoves = new Array();
+            window.undoneMoves = new Array();
+            $("#btnUndo").attr("disabled", "disabled");
+            $("#btnRedo").attr("disabled", "disabled");
+            board.prepareNewGame();
+        });
+
+        $("#btnAutoMove").click(function(evt) {
+          var playerColor = whoseTurn;
+          var playerDirection = directionOf(playerColor);
+          var result = rules.makeRandomMove(playerColor, playerDirection);
+          if (result != null) {
+            toggleTurn();   
+            $("#btnRedo").attr("disabled", "disabled");
+            $("#btnUndo").removeAttr("disabled");
+            
+            window.pastMoves.push(result);//save recent move
+            window.undoneMoves=new Array(); //re-initialize
+          }
+        });
+
+        $("#btnUndo").click(function(evt) {
+            toggleTurn();
+            $("#btnRedo").removeAttr("disabled"); //enable redoing the mvoe
+            if (window.pastMoves.length==1) $("#btnUndo").attr("disabled", "disabled");
+            var mostRecentMove = window.pastMoves.pop();
+            var recentChecker = board.getCheckerAt(mostRecentMove.to_row, mostRecentMove.to_col);
+            //if checker was crowned, kindly dethrone him
+            if(mostRecentMove.made_king) board.demote(recentChecker); 
+            //move checker back
+            board.moveTo(recentChecker, mostRecentMove.from_row, mostRecentMove.from_col);
+            if(mostRecentMove.remove.length >= 1) {
+                for(var x=0; x<=mostRecentMove.remove.length-1; x++) {
+                    var y = mostRecentMove.remove[x];
+                    var takenChecker = new Checker(y.color, y.isKing);
+                    board.add(takenChecker, y.row, y.col);
+                }
+            }
+            //add this to list of undone moves
+            window.undoneMoves.push(mostRecentMove);
+
+        });
+
+
+        $("#btnRedo").click(function(evt) {
+            toggleTurn();
+            $("#btnUndo").removeAttr("disabled"); //enable undoing the move
+            if(window.undoneMoves.length==1) $("#btnRedo").attr("disabled", "disabled");
+            var mostRecentMove = window.undoneMoves.pop();
+            var recentChecker = board.getCheckerAt(mostRecentMove.from_row, mostRecentMove.from_col);
+            //move checker back
+            board.moveTo(recentChecker, mostRecentMove.to_row, mostRecentMove.to_col);
+            if(mostRecentMove.remove.length >= 1) {
+                for(var x=0; x<=lastMove.remove.length-1; x++) {
+                    var y = mostRecentMove.remove[x]; 
+                    board.removeAt(y.row, y.col); //retake checker if it was taken
+                }
+            }
+            //add this to list of moves
+            window.pastMoves.push(mostRecentMove);
+        });
+
+        board.prepareNewGame();
+
+    });
+</script>
+
+
+<script type="text/javascript" >
+    //input handling starts here
+
+$(function() {
+
+    var canvas = document.getElementById("the_arrow");
+    var context = canvas.getContext('2d');
+    var square_side_length = 400 / board.size();
+    
+    // keeps track of the state of the cursor (is current dragging a checker?)
+    var dragging = false;
+    
+    // the checker currently being dragged by the cursor
+    var moving_checker;
+    var moving_checker_ui;
+    
+    // the distance from the point clicked on the checker to the left and top
+    // sides of its containing square respectively
+    var x_distance_in_square = 0;
+    var y_distance_in_square = 0;
+    
+    // started dragging something on the board
+    $("#the_arrow").mousedown(function(e) {
+        var canvasOffset = $("#the_arrow").offset();
+        var offsetX = e.pageX - canvasOffset.left;
+        var offsetY = e.pageY - canvasOffset.top;
+        
+        var x_square = Math.floor(offsetX / square_side_length);
+        var y_square = Math.floor(offsetY / square_side_length);
+        x_distance_in_square = offsetX % square_side_length;
+        y_distance_in_square = offsetY % square_side_length;
+        
+        var checker = board.getCheckerAt(y_square, x_square);
+
+        // is whatever being dragged a valid checker?
+        if(checker) {
+            // does the checker being dragged belong to the current player?
+            if(checker.color == whoseTurn) {
+                dragging = true;
+                moving_checker = checker;
+                moving_checker_ui = $("#boardcontent .row:nth-child("+(y_square+1).toString()+
+                                      ") .cell:nth-child("+(x_square+1).toString()+") .checker");
+                moving_checker_ui.addClass("moving");
+            }
+        }
+    });
+
+    $(window).mouseup(function(e) {
+        if(dragging) {
+            var canvasOffset = $("#the_arrow").offset();
+            // only make changes to the board if the checker was dropped inside it
+            var isOnCanvas = false;
+            if(e.pageX > canvasOffset.left && e.pageX < canvasOffset.left + 400 &&
+               e.pageY > canvasOffset.top && e.pageY < canvasOffset.top + 400) {
+                isOnCanvas = true;
+            }
+            
+            if(isOnCanvas) {
+                var offsetX = e.pageX - canvasOffset.left;
+                var offsetY = e.pageY - canvasOffset.top;
+                
+                var x_square = Math.floor(offsetX / square_side_length);
+                var y_square = Math.floor(offsetY / square_side_length);
+                
+                dragging = false;
+                moving_checker_ui.removeClass("moving");
+                if(board.isValidLocation(y_square, x_square) && 
+                   board.isEmptyLocation(y_square, x_square)) {
+                    var turnDirection = (window.whoseTurn == "black") ? -1 : 1;
+                    var playerDirection = (moving_checker.color == "black") ? -1 : 1;
+                    var result = rules.makeMove(moving_checker, turnDirection, playerDirection, y_square, x_square);
+                    if(result == null) {
+                        moving_checker_ui.css({
+                            position: "relative",
+                            left: 0,
+                            top: 0
+                        });
+                    } else {
+                        toggleTurn();
+                        // clear undone moves, recond the latest move
+                        window.pastMoves.push(result);
+                        window.undoneMoves = new Array();
+                        $("#btnUndo").removeAttr("disabled");
+                        $("#btnRedo").attr("disabled", "disabled");
+                    }
+                } else {
+                    moving_checker_ui.css({
+                        position: "relative",
+                        left: 0,
+                        top: 0
+                    });
+                }
+            } else {
+                dragging = false;
+                moving_checker_ui.removeClass("moving");
+                moving_checker_ui.css({
+                    position: "relative",
+                    left: 0,
+                    top: 0
+                });
+            }
+        }
+    });
+    
+    $(window).mousemove(function(e) { 
+        if(dragging) {
+            e.preventDefault();
+            if(moving_checker_ui.length != 0) {             
+                moving_checker_ui.css({
+                    left: e.pageX - $(window).scrollLeft() - x_distance_in_square,
+                    top: e.pageY - $(window).scrollTop() - y_distance_in_square,
+                    position: "fixed"
+                });         
+            }
+        }
+    });
+
+});
+
+
+</script>
+
+
+</head>
+
+<body>
+
+<table id="mainTable">
+    <tr>
+        <td id="navigation">
+          <table>
+			  <tr><td><div id="turn">Black Turn</div></td></tr>
+              <tr><td><input id="btnNewGame" type="button" name="new" value="New Game"/></td></tr>
+              <tr><td><input id="btnAutoMove" type="button" name="new" value="Auto Move"/></td></tr>
+              <tr><td><input disabled id="btnUndo" type="button" name="undo" value="Undo Move"/></td></tr>
+              <tr><td><input disabled id="btnRedo" type="button" name="redo" value="Redo Move"/></td></tr>
+            </table>
+        </td>
+        <td id="content">			
+				<!-- Your code here -->
+                <div id="divcontent">
+                    <div id="boardcontent"></div>
+                    <canvas id="the_arrow" width="400" height="400"></canvas>
+                </div>
+        </td>
+    </tr>
+
+   </table>
+
+</body>
+
+</html>

@@ -1,0 +1,136 @@
+package com.example.porobits;
+
+import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.View;
+import android.widget.ImageView;
+
+public class Porobits extends Activity implements View.OnTouchListener{
+	ImageView maskImage;
+	String currentSquare="none";
+
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_porobits);
+
+		ImageView maskImage = (ImageView) findViewById(R.id.mask_img);
+		Log.i("Color", String.valueOf(R.id.mask_img));
+		Log.i("Color","here");
+//		ImageView defaultImage = (ImageView) findViewById(R.id.default_image_id);
+		maskImage.setScaleType(ImageView.ScaleType.CENTER);
+//		defaultImage.setScaleType(ImageView.ScaleType.CENTER);
+		maskImage.setOnTouchListener (this);
+	}
+
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		getMenuInflater().inflate(R.menu.porobits, menu);
+		return true;
+	}
+
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		int id = item.getItemId();
+		if (id == R.id.action_settings) {
+			return true;
+		}
+		
+		return super.onOptionsItemSelected(item);
+	}
+
+	public boolean onTouch (View v, MotionEvent ev) {
+		Log.i("Color", "touched");
+		final int action = ev.getAction();
+		final int evX = (int) ev.getX();
+		final int evY = (int) ev.getY();
+		switch (action) {
+		case MotionEvent.ACTION_DOWN :
+			//do nothing 
+			break;
+		case MotionEvent.ACTION_UP :
+			int touchColor = getHotspotColor (R.id.mask_img, evX, evY);
+			int tolerance = 250;
+			if (closeMatch (Color.parseColor("#846476"), touchColor, tolerance)) {
+				currentSquare = "square1";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (closeMatch (Color.parseColor("#C66B2E"), touchColor, tolerance)) {
+				currentSquare = "square2";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (closeMatch (Color.parseColor("#FFE000"), touchColor, tolerance)) {
+				currentSquare = "square3";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (closeMatch (Color.parseColor("#17AA83"), touchColor, tolerance)) {
+				currentSquare = "square4";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (closeMatch (Color.parseColor("#FFB600"), touchColor, tolerance)) {
+				currentSquare = "square5";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (closeMatch (Color.parseColor("#FF00CF"), touchColor, tolerance)) {
+				currentSquare = "square6";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (closeMatch (Color.parseColor("#EDFF00"), touchColor, tolerance)) {
+				currentSquare = "square7";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (closeMatch (Color.parseColor("#0FEA4C"), touchColor, tolerance)) {
+				currentSquare = "square8";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (closeMatch (Color.parseColor("#0068FF"), touchColor, tolerance)) {
+				currentSquare = "square9";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (closeMatch (Color.parseColor("#00CFFF"), touchColor, tolerance)) {
+				currentSquare = "square10";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (closeMatch (Color.parseColor("#FF0C00"), touchColor, tolerance)) {
+				currentSquare = "square11";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (closeMatch (Color.parseColor("#B70BFF"), touchColor, tolerance)) {
+				currentSquare = "square12";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			
+			
+			break;
+		} // end switch
+
+		//do something
+		return true;
+	}
+
+	public int getHotspotColor (int hotspotId, int x, int y) {
+		
+		ImageView img = (ImageView) findViewById (hotspotId);
+		img.setDrawingCacheEnabled(true); 
+		Bitmap hotspots = Bitmap.createBitmap(img.getDrawingCache()); 
+		img.setDrawingCacheEnabled(false);
+		return hotspots.getPixel(x, y);
+	}
+
+	public boolean closeMatch (int color1, int color2, int tolerance) {
+		if ((int) Math.abs (Color.red (color1) - Color.red (color2)) > tolerance ) 
+			return false;
+		if ((int) Math.abs (Color.green (color1) - Color.green (color2)) > tolerance ) 
+			return false;
+		if ((int) Math.abs (Color.blue (color1) - Color.blue (color2)) > tolerance ) 
+			return false;
+		return true;
+	} // end match
+
+}

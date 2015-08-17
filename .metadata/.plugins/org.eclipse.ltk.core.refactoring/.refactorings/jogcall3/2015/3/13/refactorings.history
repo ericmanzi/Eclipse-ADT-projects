@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Rename compilation unit &apos;com.jogcall3.jogcall3.progress.java&apos; to &apos;Progress.java&apos;&#x0A;- Original project: &apos;jogcall3&apos;&#x0A;- Original element: &apos;com.jogcall3.jogcall3.progress.java&apos;&#x0A;- Renamed element: &apos;com.jogcall3.jogcall3.Progress.java&apos;" description="Rename compilation unit &apos;progress.java&apos;" flags="2" id="org.eclipse.jdt.ui.rename.compilationunit" input="/src&lt;com.jogcall3.jogcall3{progress.java" name="Progress.java" references="false" stamp="1427575498954" version="1.0"/>
+</session>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<section name="org.eclipse.ui.texteditor.GotoLineAction$GotoLineDialog_dialogBounds">
+		<item value="372" key="DIALOG_X_ORIGIN"/>
+		<item value="277" key="DIALOG_Y_ORIGIN"/>
+	</section>
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
+		<item value="false" key="isRegEx"/>
+		<item value="MediaPlayer" key="selection"/>
+		<item value="false" key="casesensitive"/>
+		<item value="false" key="incremental"/>
+		<item value="true" key="wrap"/>
+		<item value="false" key="wholeword"/>
+		<list key="findhistory">
+			<item value="mediaplayer"/>
+			<item value="C&quot;"/>
+			<item value="C&apos;"/>
+			<item value="C"/>
+			<item value="&apos;C"/>
+			<item value="act="/>
+			<item value="still"/>
+			<item value="startListening"/>
+		</list>
+		<list key="replacehistory">
+			<item value="iv.setImageResource"/>
+			<item value="R.drawable.ps"/>
+			<item value="View.INVISIBLE"/>
+			<item value="\&quot;"/>
+			<item value="\\"/>
+			<item value="Log.d"/>
+			<item value="Log.i"/>
+			<item value="Log.d(&quot;NESTTHREAD&quot;,"/>
+		</list>
+	</section>
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog_dialogBounds">
+		<item value="265" key="DIALOG_WIDTH"/>
+		<item value="1|.Helvetica Neue DeskInterface|11.0|0|COCOA|1|.HelveticaNeueDeskInterface-Regular" key="DIALOG_FONT_NAME"/>
+		<item value="399" key="DIALOG_HEIGHT"/>
+		<item value="912" key="DIALOG_X_ORIGIN"/>
+		<item value="274" key="DIALOG_Y_ORIGIN"/>
+	</section>
+</section>

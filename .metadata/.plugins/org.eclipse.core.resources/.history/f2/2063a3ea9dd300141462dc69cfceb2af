@@ -1,0 +1,83 @@
+package com.eric0321.storedb;
+
+import java.text.DateFormat;
+import java.util.Date;
+import java.util.HashMap;
+
+import android.app.Activity;
+import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.os.Bundle;
+import android.preference.PreferenceManager;
+import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup.LayoutParams;
+import android.widget.Button;
+import android.widget.LinearLayout;
+
+public class EditLogs extends Activity {
+	private LinearLayout layLogs;
+
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_edit_logs);
+		layLogs = (LinearLayout) findViewById(R.id.layLogs);
+		SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+		HashMap<String, Long> prefMap = (HashMap<String, Long>) preferences.getAll();
+		fillLayLogs(prefMap);
+	}
+
+	private void fillLayLogs(HashMap<String, Long> prefMap) {
+		for (String key:prefMap.keySet()) {
+			if (key.substring(0, 1).equals("1")) {
+				Button b=makeButton(key, DateFormat.getDateTimeInstance().format(new Date(Long.parseLong(key))), 
+						MainActivity.convertMillisecondsToHMmSs(prefMap.get(key)));
+				layLogs.addView(b);
+			}
+		}
+	}
+	
+	private Button makeButton(final String keyInt, String keyTime, String valueDuration) {
+		Button b = new Button(this);
+//		int id = Integer.parseInt(keyTime.substring(0, 10)); //the time of activity in seconds
+		b.setText(keyTime+", Duration:"+valueDuration);
+//		b.setId(id);
+		b.setBackgroundColor(Color.WHITE);
+		b.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+		b.setGravity(Gravity.RIGHT);
+		final SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+		final SharedPreferences.Editor editor = preferences.edit();
+		b.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View arg0) {
+				editor.remove(keyInt);
+				layLogs.removeAllViews();
+				HashMap<String, Long> prefMap = (HashMap<String, Long>) preferences.getAll();
+				fillLayLogs(prefMap);
+			}
+		});
+		return b;
+	}
+	
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		// Inflate the menu; this adds items to the action bar if it is present.
+		getMenuInflater().inflate(R.menu.edit_logs, menu);
+		return true;
+	}
+
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		// Handle action bar item clicks here. The action bar will
+		// automatically handle clicks on the Home/Up button, so long
+		// as you specify a parent activity in AndroidManifest.xml.
+		int id = item.getItemId();
+		if (id == R.id.action_settings) {
+			return true;
+		}
+		return super.onOptionsItemSelected(item);
+	}
+}

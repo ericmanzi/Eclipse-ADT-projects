@@ -1,0 +1,65 @@
+﻿#navigation{
+	width:140px
+}
+
+#navigation table{
+	width:100%
+}
+
+#navigation input{
+	width:100%
+}
+
+#content{
+	background-color:gray;
+}
+#divcontent{
+	width:400px;
+	height:400px;
+	border-top: 1px solid gray;
+	border-left: 1px solid gray;
+	position: relative;
+}
+#tablecontent{
+	table-layout:fixed;
+	width:100%;
+	height:100%;
+}
+img {
+	display: block;
+}
+.row {
+	overflow: auto;
+}
+.cell {
+	float: left;
+	position: relative;
+	overflow: hidden;
+}
+/*using nth child allows us to choose odd and even elements: http://nthmaster.com/*/
+#boardcontent .row:nth-child(odd) .cell:nth-child(odd),
+#boardcontent .row:nth-child(even) .cell:nth-child(even) {
+	background: white;
+}
+
+.checker {
+	margin: 0px auto;
+	vertical-align: top;
+	position: relative;
+	z-index: 3;
+}
+.moving {
+	z-index: 6;
+}
+#turn {
+	text-align: center;
+	font-size: 20px;
+	color: white;
+	background-color: black;
+}
+#the_arrow {
+	top:0;
+	left:0;
+	position: absolute;
+	z-index:5;
+}

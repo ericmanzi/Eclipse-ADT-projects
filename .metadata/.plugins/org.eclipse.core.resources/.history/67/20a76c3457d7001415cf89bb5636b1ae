@@ -1,0 +1,988 @@
+package com.joggy.jogcall;
+
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.net.UnknownHostException;
+import java.text.DateFormat;
+import java.util.Date;
+
+import org.w3c.dom.Text;
+
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.ShapeDrawable;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.SystemClock;
+import android.preference.PreferenceManager;
+import android.support.v4.app.Fragment;
+import android.support.v7.app.ActionBarActivity;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
+import android.widget.Button;
+import android.widget.Chronometer;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
+import android.widget.TextView;
+import at.abraxas.amarino.Amarino;
+import at.abraxas.amarino.AmarinoIntent;
+
+
+
+
+
+//LocationSensor stuff
+import android.provider.Settings;
+
+
+
+
+
+
+import android.provider.Settings.SettingNotFoundException;
+
+
+
+
+
+//DetectedActivity imports
+import java.text.DateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//import android.bluetooth.BluetoothAdapter;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.support.v4.content.LocalBroadcastManager;
+import android.text.InputType;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.ListView;
+import android.widget.Toast;
+
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
+import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.ActivityRecognition;
+import com.google.android.gms.location.DetectedActivity;
+import com.parse.Parse;
+import com.parse.ParseObject;
+import com.parse.ParseQuery;
+
+
+public class ScreenSlidePageFragment extends Fragment implements 
+ConnectionCallbacks, OnConnectionFailedListener, ResultCallback<Status>{
+
+	private static final String DEVICE_ADDRESS =  "00:06:66:03:73:8C"; //"00:06:66:03:73:7B";
+	private String NEST_IP = "18.111.31.99";  
+
+	private ArduinoReceiver arduinoReceiver = new ArduinoReceiver();
+
+	public static final String ARG_PAGE = "page";
+	private int mPageNumber;
+	RelativeLayout rlProgress;
+	RelativeLayout rlRunning;
+	Context context = getActivity();
+	//RUNNING SCREEN 
+	public static ActionBarActivity activityObj;
+	private String formattedDate;
+	public long spenttime;
+	private boolean timerRunning=false;
+	public long elapsedTimeAtPause=0;
+	private long startTime;
+	Chronometer chronometer;
+	ImageButton startbtn;
+	ImageButton pausebtn;
+	ImageButton stopbtn;
+	ImageButton lognew;
+	LinearLayout dayLogs;
+	boolean startedManually=false;
+	
+	//PROGRESS SCREEN
+	LinearLayout weekLogs;
+	private ImageView image;
+	private Button day;
+	public ViewGroup rootView;
+
+	//DETECTEDACTIVITY stuff
+	//  A receiver for DetectedActivity objects broadcast by the {@code ActivityDetectionIntentService}.
+	private ListView mDetectedActivitiesListView;
+
+	protected ActivityDetectionBroadcastReceiver mBroadcastReceiver;
+	//  Provides the entry point to Google Play services.
+	protected GoogleApiClient mGoogleApiClient;
+	//  Used when requesting or removing activity detection updates.
+	private PendingIntent mActivityDetectionPendingIntent;
+	//  Adapter backed by a list of DetectedActivity objects.
+	private DetectedActivitiesAdapter mAdapter;
+	//  We use this to initialize the detectedActivityAdapter    
+	private ArrayList<DetectedActivity> mDetectedActivities;
+	protected static final String TAG = "activity-recognition";
+
+	//SENDING ACTION TO NEST
+	private Socket socketNest;
+	Thread nestThread;
+	private static final int NESTPORT = 23;
+
+	Handler updateConversationHandler;
+	private long daysElapsedTime=0;
+	
+	//Location and partner's location
+	double latitude=0.0;
+	double longitude=0.0;
+
+
+
+
+	public static ScreenSlidePageFragment create(int pageNumber, ActionBarActivity activity) {
+		ScreenSlidePageFragment fragment = new ScreenSlidePageFragment();
+		Bundle args = new Bundle();
+		args.putInt(ARG_PAGE, pageNumber);
+		fragment.setArguments(args);
+		activityObj = activity;
+		return fragment;
+	}
+
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		mPageNumber = getArguments().getInt(ARG_PAGE);
+		// Enable Local Datastore.
+		Parse.initialize(getActivity(), "Xec3J6ezKNP2DC5eqGR17eOMzPar9vz2qXdMdy9b", "fVPLbHRLVtnezhy6Fis1fqt4FZRNG4Tju8waSFWV");
+		//		Parse.enableLocalDatastore(getActivity());
+		
+		LocationManager locationManager = (LocationManager) getActivity().getSystemService(Context.LOCATION_SERVICE);
+		LocationListener locationListener = new MyLocationListener();
+		locationManager.requestLocationUpdates(
+		LocationManager.GPS_PROVIDER, 500, 10, locationListener);
+		
+
+	}
+	@Override
+	public void onStart() {
+		super.onStart();
+		mGoogleApiClient.connect(); 
+
+		//AMARINO STUFF
+		getActivity().registerReceiver(arduinoReceiver, new IntentFilter(AmarinoIntent.ACTION_RECEIVED));
+		// this is how you tell Amarino to connect to a specific BT device from within your own code
+		Amarino.connect(getActivity(), DEVICE_ADDRESS);
+		
+		
+		//LOCATION STUFF
+		try {
+			if (getLocationMode(getActivity())!=3) {
+//				showGPSDisabledAlertToUser();
+//				startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+			} 
+		} catch (SettingNotFoundException e) {
+			e.printStackTrace();
+		}
+		Toast.makeText(getActivity(), "Long:"+longitude+" Lat:"+latitude, Toast.LENGTH_LONG).show();
+		
+	}
+
+	@Override
+	public void onStop() {
+		super.onStop();
+		mGoogleApiClient.disconnect();
+
+		//AMARINO STUFF
+		Amarino.disconnect(getActivity(), DEVICE_ADDRESS);		
+		// do never forget to unregister a registered receiver
+		getActivity().unregisterReceiver(arduinoReceiver);
+	}
+
+	@Override
+	public void onResume() {
+		super.onResume();
+		// Register the broadcast receiver that informs this activity of the DetectedActivity
+		// object broadcast sent by the intent service.
+		LocalBroadcastManager.getInstance(getActivity()).registerReceiver(mBroadcastReceiver,
+				new IntentFilter(Constants.BROADCAST_ACTION));
+	}
+	
+	@Override
+	public void onActivityResult(int requestCode, int resultCode, Intent data) {
+	    super.onActivityResult(requestCode, resultCode, data);
+	    
+	    if (resultCode == 1) {
+	       switch (requestCode) {
+	          case 1:
+	           break;
+	        }
+	     }  
+	 }
+	
+	
+	public ScreenSlidePageFragment() {
+		// Required empty public constructor
+	}
+
+	@Override
+	public View onCreateView(LayoutInflater inflater, ViewGroup container,
+			Bundle savedInstanceState) {
+		// Inflate the layout containing a title and body text.
+		rootView = (ViewGroup) inflater
+				.inflate(R.layout.fragment_screen_slide_page, container, false);
+
+		rlRunning = createRunningScreen(rootView);
+		rlProgress = createProgressScreen(rootView);
+		// Set the view to show progress or running.
+		if (mPageNumber==0) {
+			rlRunning.setVisibility(View.VISIBLE);
+			rlProgress.setVisibility(View.GONE);
+		}
+		if (mPageNumber==1) {
+			rlRunning.setVisibility(View.GONE);
+			rlProgress.setVisibility(View.VISIBLE);
+			displayFakeProgress();
+			Button child = new Button(activityObj);
+			dayLogs.addView(child,0);
+
+		}
+
+		//testing the datastore
+		ParseObject testObject = new ParseObject("TestObject");
+		testObject.put("hell", "owrorl");
+		testObject.saveInBackground();
+		
+		ParseQuery<ParseObject> query = ParseQuery.getQuery("GameScore");
+		
+
+		//start detecting user's activity
+		startDetectedActivity(rootView, savedInstanceState);
+
+		//connect to nest
+		//		updateConversationHandler = new Handler();
+		Log.d("NESTTHREAD", "getting ready to start nest thread");
+		nestThread = new Thread(new NestThread());
+		nestThread.start();
+		Log.d("NESTTHREAD", "nest thread started");
+
+		return rootView;
+	}
+
+	public RelativeLayout createRunningScreen(ViewGroup rootView) {
+		RelativeLayout newrlRunning = (RelativeLayout) rootView.findViewById(R.id.rlRunning);
+		chronometer = (Chronometer) rootView.findViewById(R.id.chronometer);
+		Typeface tf = Typeface.createFromAsset(activityObj.getAssets(),"fonts/digital-7.ttf");
+		chronometer.setTypeface(tf);
+		dayLogs = (LinearLayout) rootView.findViewById(R.id.dayLogs);
+		startbtn = (ImageButton) rootView.findViewById(R.id.startbtn);
+		pausebtn = (ImageButton) rootView.findViewById(R.id.pausebtn);
+		stopbtn = (ImageButton) rootView.findViewById(R.id.stopbtn);
+		lognew = (ImageButton) rootView.findViewById(R.id.newbtn);
+		startbtn.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				startTimer();
+				startedManually=true;
+			}
+		});
+		pausebtn.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				pauseTimer();
+			}
+		});
+		stopbtn.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				stopTimer();
+			}
+		});
+		lognew.setOnClickListener(new View.OnClickListener() {
+
+			@Override
+			public void onClick(View v) {
+				final EditText txt = new EditText(activityObj);
+				txt.setInputType(InputType.TYPE_CLASS_NUMBER);
+				txt.setGravity(Gravity.CENTER_HORIZONTAL);
+				new AlertDialog.Builder(activityObj)
+				.setTitle("New activity")
+				.setMessage("Add a new activity to today's log. \n "
+						+ "Enter the amount of time (in minutes) this activity took.")
+						.setView(txt)
+						.setPositiveButton("Log it!", new DialogInterface.OnClickListener() {
+							public void onClick(DialogInterface dialog, int whichButton) {
+								String minutes = txt.getText().toString();
+								formattedDate = DateFormat.getDateTimeInstance().format(new Date(System.currentTimeMillis()));
+								long millis = Long.parseLong(minutes)*60000;
+								saveRecord(millis);
+								displayNew(millis);
+
+							}
+						})
+						.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+							public void onClick(DialogInterface dialog, int whichButton) {
+							}
+						})
+						.show(); 
+			}
+		});
+		
+		newrlRunning.setId(newrlRunning.generateViewId());
+		newrlRunning.invalidate();
+		return newrlRunning;
+	}
+
+	public RelativeLayout  createProgressScreen(ViewGroup rootView) {
+		RelativeLayout rlProgressnew = (RelativeLayout) rootView.findViewById(R.id.rlProgress);
+		weekLogs = (LinearLayout) rootView.findViewById(R.id.weekLogs);
+		rlProgressnew.setId(rlProgressnew.generateViewId());
+		rlProgressnew.invalidate();
+		return rlProgressnew;
+	}
+
+
+	/*
+	 * RUNNING PAGE METHODS
+	 */
+
+	public static String convertMsToMins(long milliseconds) {
+		long seconds = milliseconds/1000;
+		long s = seconds % 60;
+		
+		String ss=String.format("%02d", s)+"s";
+		long m = (seconds / 60) % 60;
+		String mm=String.format("%02d", m)+"m ";
+		long h = (seconds / (60 * 60)) % 24;
+		String hh=String.format("%d", h)+"h ";
+		return hh+mm+ss;
+	}
+
+	public void saveRecord(long newspenttime) {
+		SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(activityObj);
+		SharedPreferences.Editor editor = preferences.edit();
+		editor.putLong(String.valueOf(startTime), newspenttime);//save the starttime (long string) and duration (long) milliseconds
+		editor.commit();
+		this.spenttime=newspenttime;
+		daysElapsedTime+=newspenttime;
+		Toast.makeText(getActivity(), "days time:"+String.valueOf((int)(daysElapsedTime/60000))+"\nSpent time:"+String.valueOf((int)(newspenttime/60000))
+				, Toast.LENGTH_LONG).show();
+		
+//		getActivity().recreate();
+//		displayFakeProgress();
+		
+	}
+
+	public void displayNew(long spenttime) {
+		String mins = convertMsToMins(spenttime);
+		dayLogs.addView(makeNewEntry(makeDateText(formattedDate), makeButton(mins)), 0);
+	}
+
+	private LinearLayout makeNewEntry(TextView tv, Button b) {
+		LinearLayout row = new LinearLayout(activityObj);
+		row.setBackgroundResource(R.drawable.activities_layout);
+		row.setOrientation(LinearLayout.HORIZONTAL);
+		row.setHorizontalGravity(Gravity.CENTER_HORIZONTAL);
+		row.addView(tv);
+		row.addView(b);
+		return row;
+	}
+
+	private Button makeButton(String mins) {
+		final Button b = new Button(activityObj);
+		b.setText(mins);
+		b.setTextSize((float) 20);
+		b.setAllCaps(false);
+		//		b.setBackgroundColor(Color.TRANSPARENT);
+		//		b.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+		//		b.setGravity(Gravity.RIGHT);
+		b.setOnClickListener(new View.OnClickListener() {
+
+			@Override
+			public void onClick(View v) {
+				final EditText txt = new EditText(activityObj);
+				txt.setInputType(InputType.TYPE_CLASS_NUMBER);
+				txt.setGravity(Gravity.CENTER_HORIZONTAL);
+				new AlertDialog.Builder(activityObj)
+				.setTitle("Edit entry")
+				.setMessage("Enter the amount of time (in minutes) this activity actually took.")
+				.setView(txt)
+				.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int whichButton) {
+						String minutes = txt.getText().toString();
+						b.setText(minutes);
+						long millis = Long.parseLong(minutes)*60000;
+						saveRecord(millis);
+						//TODO: here we should find the time this log was initially made and replace the entry in preferences
+					}
+				})
+				.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int whichButton) {
+					}
+				})
+				.show(); 
+			}
+		});
+		return b;
+	}
+
+	private TextView makeDateText(String keyTime) {
+		TextView t = new TextView(activityObj);
+		t.setText(keyTime);
+		t.setTextColor(Color.BLACK);
+		t.setBackgroundColor(Color.parseColor("#00FFFFFF"));
+		return t;
+	}
+
+
+	private void stopTimer() {
+		if (timerRunning) {
+			spenttime=SystemClock.elapsedRealtime()-chronometer.getBase();
+			chronometer.stop();
+			timerRunning=false;
+			elapsedTimeAtPause=0;
+			saveRecord(spenttime);
+			displayNew(spenttime);
+			toggleButtonState();
+
+		}
+	}
+	private void startTimer() {
+		if (!timerRunning) {
+			chronometer.setBase(SystemClock.elapsedRealtime()+elapsedTimeAtPause);
+			startTime=System.currentTimeMillis();
+			formattedDate = DateFormat.getDateTimeInstance().format(new Date(startTime));
+			chronometer.start();
+			timerRunning=true;
+			toggleButtonState();
+		}
+	}
+
+	private void pauseTimer() {
+		if (timerRunning) {
+			elapsedTimeAtPause=chronometer.getBase()-SystemClock.elapsedRealtime();
+			chronometer.stop();
+			timerRunning=false;
+			toggleButtonState();
+		}
+	}
+
+	private void toggleButtonState() {
+		if (timerRunning) {
+			lognew.setEnabled(false);
+			startbtn.setEnabled(false);
+			pausebtn.setEnabled(true);
+			stopbtn.setEnabled(true);
+		} else {
+			lognew.setEnabled(true);
+			startbtn.setEnabled(true);
+			pausebtn.setEnabled(false);
+			stopbtn.setEnabled(false);
+		}
+	}
+
+	/*
+	 * 
+	 * PROGRESS SCREEN CODE
+	 * 
+	 */
+
+	public void displayFakeProgress() {
+		for (int i=7; i>=0; i--) {
+			if (i==2) {
+				weekLogs.addView(makeDate("Saturday", 7-i),0);
+				weekLogs.addView(makeImage(R.drawable.nest6),0);
+
+			} if (i==3) {
+				weekLogs.addView(makeDate("Friday", 7-i),0);
+				weekLogs.addView(makeImage(R.drawable.nest5),0);
+
+			} if (i==4) {
+				weekLogs.addView(makeDate("Thursday", 7-i),0);
+				weekLogs.addView(makeImage(R.drawable.nest4),0);
+
+			} if (i==5) {
+				weekLogs.addView(makeDate("wednesday", 7-i),0);
+				weekLogs.addView(makeImage(R.drawable.nest3),0);
+
+			} if (i==6) {
+				weekLogs.addView(makeDate("tuesday", 7-i),0);
+				weekLogs.addView(makeImage(R.drawable.nest2),0);
+
+			} if (i==7) {
+				weekLogs.addView(makeDate("monday", 7-i),0);
+				weekLogs.addView(makeImage(R.drawable.nest1),0);
+			}
+		}
+
+		weekLogs.addView(makeDate("Sunday", (int) (daysElapsedTime)), 0);
+		weekLogs.addView(makeImage(R.drawable.nest7),0);
+
+
+		Button currentGoal = new Button(activityObj);
+		int id=currentGoal.generateViewId();
+		currentGoal.setId(id);
+		currentGoal.setBackgroundResource(R.drawable.rest);
+		currentGoal.setText("Your goal for this week is: "+
+				PreferenceManager.getDefaultSharedPreferences(activityObj).getInt("goal time", 100));
+		weekLogs.addView(currentGoal);
+	}
+
+
+
+	public ImageView makeImage(int identifier) {
+		image = new ImageView(activityObj);
+		image.setId(image.generateViewId());
+		image.setImageResource(identifier);
+		image.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+		image.setAdjustViewBounds(true);
+		return image;
+	}
+	public Button makeDate(String day_of_week, int time) {
+		day = new Button(activityObj);
+		day.setId(day.generateViewId());
+		day.setAllCaps(false);
+		day.setBackgroundResource(R.drawable.nestdate);
+		//		day.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, 100));
+		day.setText(day_of_week+" \t \t"+convertMsToMins(time));
+		//		day.setGravity(Gravity.TOP);
+		return day;
+	}
+
+	/*
+	 * 
+	 * DETECTEDactivity code
+	 * 
+	 */
+	public void startDetectedActivity(View rootView, Bundle savedInstanceState) {
+		mDetectedActivitiesListView = new ListView(activityObj);
+		mDetectedActivitiesListView.setVisibility(View.GONE);
+		mBroadcastReceiver = new ActivityDetectionBroadcastReceiver();
+		// Reuse the value of mDetectedActivities from the bundle if possible. This maintains state
+		// across device orientation changes. 
+		if (savedInstanceState != null && savedInstanceState.containsKey(
+				Constants.DETECTED_ACTIVITIES)) {
+			mDetectedActivities = (ArrayList<DetectedActivity>) savedInstanceState.getSerializable(
+					Constants.DETECTED_ACTIVITIES);
+		} else {
+			//If mDetectedActivities is not stored in the bundle,
+			// populate it with DetectedActivity objects whose confidence is set to 0. Doing this
+			// ensures that the bar graphs for only only the most recently detected activities are
+			// filled in.
+
+			mDetectedActivities = new ArrayList<DetectedActivity>();
+
+			// Set the confidence level of each monitored activity to zero.
+			for (int i = 0; i < Constants.MONITORED_ACTIVITIES.length; i++) {
+				mDetectedActivities.add(new DetectedActivity(Constants.MONITORED_ACTIVITIES[i], 0));
+			}
+		}
+		mAdapter = new DetectedActivitiesAdapter(getActivity(), mDetectedActivities);
+		mDetectedActivitiesListView.setAdapter(mAdapter);
+		buildGoogleApiClient();
+	}
+
+	protected synchronized void buildGoogleApiClient() {
+		mGoogleApiClient = new GoogleApiClient.Builder(getActivity())
+		.addConnectionCallbacks(this)
+		.addOnConnectionFailedListener(this)
+		.addApi(ActivityRecognition.API)
+		.build();
+	}
+
+	
+
+	@Override
+	public void onPause() {
+		// Unregister the broadcast receiver that was registered during onResume().
+		LocalBroadcastManager.getInstance(getActivity()).unregisterReceiver(mBroadcastReceiver);
+		super.onPause();
+	}
+	@Override
+	public void onConnectionFailed(ConnectionResult arg0) {
+		Log.d(TAG, "Connection failed: ConnectionResult.getErrorCode() = " + arg0.getErrorCode());
+	}
+
+	@Override
+	public void onConnected(Bundle arg0) {
+		Log.d(TAG, "Connected to GoogleApiClient");
+		requestActivityUpdatesButtonHandler();
+	}
+
+	@Override
+	public void onConnectionSuspended(int arg0) {
+		// The connection to Google Play services was lost for some reason. We call connect() to
+		// attempt to re-establish the connection.
+		Log.d(TAG, "Connection suspended");
+		mGoogleApiClient.connect();
+	}
+	/*
+	 * Registers for activity recognition updates using
+	 * Since this activity implements the PendingResult interface, the activity itself receives the 
+	 * callback, and the code within {@code onResult} executes.
+	 *  Note: once {@code requestActivityUpdates()} completes
+	 * successfully, the {@code DetectedActivitiesIntentService} starts receiving call-backs when
+	 * activities are detected.
+	 */
+	public void requestActivityUpdatesButtonHandler() {
+		if (!mGoogleApiClient.isConnected()) {
+			Toast.makeText(getActivity(), "Google api client not yet connected. try again",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		ActivityRecognition.ActivityRecognitionApi.requestActivityUpdates(
+				mGoogleApiClient,
+				Constants.DETECTION_INTERVAL_IN_MILLISECONDS,
+				getActivityDetectionPendingIntent()
+				).setResultCallback(this);
+	}
+	// Remove all activity updates for the PendingIntent that was used to request activity
+	// updates.
+	public void removeActivityUpdatesButtonHandler() {
+		if (!mGoogleApiClient.isConnected()) {
+			Toast.makeText(getActivity(), "Google api client not yet connected. try again",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		// Remove all activity updates for the PendingIntent that was used to request activity
+		// updates.
+		ActivityRecognition.ActivityRecognitionApi.removeActivityUpdates(
+				mGoogleApiClient,
+				getActivityDetectionPendingIntent()
+				).setResultCallback(this);
+	}
+
+	/*
+	 * Runs when the result of calling requestActivityUpdates() and removeActivityUpdates() becomes
+	 * available. Either method can complete successfully or with an error.
+	 */
+	@Override
+	public void onResult(Status status) {
+		if (status.isSuccess()) {
+			// Toggle the status of activity updates requested, and save in shared preferences.
+			//            boolean requestingUpdates = !getUpdatesRequestedState();
+			//            setUpdatesRequestedState(requestingUpdates);
+
+			// Update the UI. Requesting activity updates enables the Remove Activity Updates
+			// button, and removing activity updates enables the Add Activity Updates button.
+			//            setButtonsEnabledState();
+			// Toggle the status of activity updates requested, and save in shared preferences.
+			boolean requestingUpdates = !getUpdatesRequestedState();
+			setUpdatesRequestedState(requestingUpdates);
+
+			// Update the UI. Requesting activity updates enables the Remove Activity Updates
+			// button, and removing activity updates enables the Add Activity Updates button.
+			//			setButtonsEnabledState();
+
+			Toast.makeText(
+					getActivity(),
+					requestingUpdates ? "activity updates added" :
+						"activity updates added",
+						Toast.LENGTH_SHORT
+					).show();
+
+		} else {
+			Log.e(TAG, "Error adding or removing activity detection: " + status.getStatusMessage());
+		}
+	}
+
+	/*
+	 * Gets a PendingIntent to be sent for each activity detection.
+	 */
+	private PendingIntent getActivityDetectionPendingIntent() {
+		// Reuse the PendingIntent if we already have it.
+		if (mActivityDetectionPendingIntent != null) {
+			return mActivityDetectionPendingIntent;
+		}
+		Intent intent = new Intent(getActivity(), DetectedActivitiesIntentService.class);
+
+		// We use FLAG_UPDATE_CURRENT so that we get the same pending intent back when calling
+		// requestActivityUpdates() and removeActivityUpdates().
+		return PendingIntent.getService(getActivity(), 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+	}
+
+	/*
+	 * Retrieves a SharedPreference object used to store or read values in this app. If a
+	 * preferences file passed as the first argument to {@link #getSharedPreferences}
+	 * does not exist, it is created when {@link SharedPreferences.Editor} is used to commit
+	 * data.
+	 */
+	private SharedPreferences getSharedPreferencesInstance() {
+		return getActivity().getSharedPreferences(Constants.SHARED_PREFERENCES_NAME, getActivity().MODE_PRIVATE);
+	}
+
+	/*
+	 * Retrieves the boolean from SharedPreferences that tracks whether we are requesting activity
+	 * updates.
+	 */
+	private boolean getUpdatesRequestedState() {
+		return getSharedPreferencesInstance()
+				.getBoolean(Constants.ACTIVITY_UPDATES_REQUESTED_KEY, false);
+	}
+
+	/*
+	 * Sets the boolean in SharedPreferences that tracks whether we are requesting activity
+	 * updates.
+	 */
+	private void setUpdatesRequestedState(boolean requestingUpdates) {
+		getSharedPreferencesInstance()
+		.edit()
+		.putBoolean(Constants.ACTIVITY_UPDATES_REQUESTED_KEY, requestingUpdates)
+		.commit();
+	}
+	/*
+	 * Stores the list of detected activities in the Bundle.
+	 */
+	public void onSaveInstanceState(Bundle savedInstanceState) {
+		savedInstanceState.putSerializable(Constants.DETECTED_ACTIVITIES, mDetectedActivities);
+		super.onSaveInstanceState(savedInstanceState);
+	}
+	/*
+	 * Checks to see if current activity is 'moving' and starts the time.
+	 * Processes the list of freshly detected activities. Asks the adapter to update its list of
+	 * DetectedActivities with new {@code DetectedActivity} objects reflecting the latest detected
+	 * activities.
+	 */
+	protected void updateDetectedActivitiesList(ArrayList<DetectedActivity> detectedActivities) {
+		mAdapter.updateActivities(detectedActivities);
+		String act=mAdapter.getActivityString();
+//		Toast.makeText(getActivity(), "currentactivity: "+act,Toast.LENGTH_LONG).show();
+		Log.d("DETECTING...", act);
+		if (	act.equals("in vehicle") ||
+				act.equals("on bicycle") ||
+				act.equals("on foot") ||
+				act.equals("walking")) {
+			startTimer();
+			startedManually=false;
+		} else if (	act.equals("tilting") || 
+				act.equals("still")) {
+			if (!startedManually) {
+				stopTimer();
+			}
+		}
+	}
+
+	//	Receiver for intents sent by DetectedActivitiesIntentService via a sendBroadcast().
+	//     Receives a list of one or more DetectedActivity objects associated with the current state of
+	//     the device.
+	public class ActivityDetectionBroadcastReceiver extends BroadcastReceiver {
+		protected static final String TAG = "activity-detection-response-receiver";
+
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			ArrayList<DetectedActivity> updatedActivities =
+					intent.getParcelableArrayListExtra(Constants.ACTIVITY_EXTRA);
+			updateDetectedActivitiesList(updatedActivities);
+		}
+	}
+
+
+
+
+
+	/*
+	 * 
+	 * Connecting to nest code
+	 * 
+	 */
+	class NestThread implements Runnable {
+		long daysElapsedTimeInThread = daysElapsedTime;
+		@Override
+		public void run() {
+			//			Toast.makeText(getActivity(), "starting nest thread", 500).show();
+			Log.d("NEST THREAD", "starting nest thread");
+			try {
+				InetAddress nestServerAddr = InetAddress.getByName(NEST_IP);
+				Log.d("NESTTHREAD","Connecting to nest...");
+				socketNest = new Socket(nestServerAddr, NESTPORT);
+				if (socketNest!=null) {
+					Log.d("NESTTHREAD","Connected to nest!");
+				} else {
+					Log.d("NESTTHREAD","Can't connect to nest at IP:"+
+							NEST_IP+" PORT: "+NESTPORT);
+				}
+				while (true) {
+					if (daysElapsedTime>daysElapsedTimeInThread) { //if saveRecord (logging new activity is called)
+						long diff = daysElapsedTime-daysElapsedTimeInThread;
+						long numChirps = (long) diff/30000;
+						for (long i = 0; i<=numChirps; i++) {
+
+							Log.d("NESTTHREAD","more than 30 second run, sending B to nest");
+
+							PrintWriter out;
+							try {
+								out = new PrintWriter(new BufferedWriter(
+										new OutputStreamWriter(socketNest.getOutputStream())),
+										true);
+								out.println("CC");
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
+						}
+						
+						daysElapsedTimeInThread=daysElapsedTime;
+					}
+				}
+
+			} catch (UnknownHostException e1) {
+				e1.printStackTrace();
+				Log.d("NESTTHREAD","HostException - Can't connect to nest at IP:"+
+						NEST_IP+" PORT: "+NESTPORT);
+			} catch (IOException e1) {
+				e1.printStackTrace();
+				Log.d("NESTTHREAD","IOException - Can't connect to nest at IP:"+
+						NEST_IP+" PORT: "+NESTPORT);
+			}
+		}
+	}
+	//	class updateUIThread implements Runnable {
+	//		private String msg;
+	//
+	//		public updateUIThread(String str) {
+	//			this.msg = str;
+	//		}
+	//
+	//		@Override
+	//		public void run() {
+	//			TextView text = new TextView(activityObj);
+	//			text.setText(msg);
+	//			Toast.makeText(getActivity(), text.getText(), 500).show();
+	//		}
+	//	}
+
+	/**
+	 * ArduinoReceiver is responsible for catching broadcasted Amarino
+	 * events.
+	 */
+	public class ArduinoReceiver extends BroadcastReceiver {
+
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			String data = null;
+
+			// the device address from which the data was sent, we don't need it here but to demonstrate how you retrieve it
+			final String address = intent.getStringExtra(AmarinoIntent.EXTRA_DEVICE_ADDRESS);
+
+			// the type of data which is added to the intent
+			final int dataType = intent.getIntExtra(AmarinoIntent.EXTRA_DATA_TYPE, -1);
+
+			// we only expect String data though, but it is better to check if really string was sent
+			// later Amarino will support differnt data types, so far data comes always as string and
+			// you have to parse the data to the type you have sent from Arduino, like it is shown below
+			if (dataType == AmarinoIntent.STRING_EXTRA){
+				data = intent.getStringExtra(AmarinoIntent.EXTRA_DATA);
+
+				//Log.v("Debugging", "On receiving from sensors, directly sending Data to Nest for chirping if not null");
+
+				if (data != null){
+					try {
+						PrintWriter out = new PrintWriter(new BufferedWriter(
+								new OutputStreamWriter(socketNest.getOutputStream())),
+								true);
+						Toast.makeText(getActivity(), "hello", Toast.LENGTH_LONG).show();
+						out.println("CC");
+					} catch (UnknownHostException e) {
+						e.printStackTrace();
+					} catch (IOException e) {
+						e.printStackTrace();
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+			}
+		}
+	}
+	
+	
+	
+	
+	//LOCATION STUFF
+	private void showGPSDisabledAlertToUser() {
+        // TODO Auto-generated method stub
+        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(getActivity());
+        alertDialogBuilder
+                .setMessage(
+                        "GPS is disabled in your device. Would you like to enable it?")
+                .setCancelable(false)
+                .setPositiveButton("Go to Settings Page To Enable GPS",
+
+                new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                Intent callGPSSettingIntent = new Intent(
+                                        Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                                startActivityForResult(callGPSSettingIntent,1);
+                            }
+                        });
+//      alertDialogBuilder.setNegativeButton("Cancel",
+//              new DialogInterface.OnClickListener() {
+//                  public void onClick(DialogInterface dialog, int id) {
+//                      dialog.cancel();
+//                  }
+//              });
+        AlertDialog alert = alertDialogBuilder.create();
+        alert.show();
+        
+    }
+
+	private class MyLocationListener implements LocationListener {
+
+	    @Override
+	    public void onLocationChanged(Location loc) {
+	        longitude = loc.getLongitude();
+	        Log.d(TAG, "Longitude"+longitude);
+	        latitude = loc.getLatitude();
+	        Log.v(TAG, "Latitude: "+latitude);
+	    }
+	   
+	    @Override
+	    public void onProviderDisabled(String provider) {}
+	    @Override
+	    public void onProviderEnabled(String provider) {}
+	    @Override
+	    public void onStatusChanged(String provider, int status, Bundle extras) {}
+	}
+	
+	public int getLocationMode(Context context) throws SettingNotFoundException
+	{
+		return Settings.Secure.getInt(context.getContentResolver(), Settings.Secure.LOCATION_MODE);
+	}
+
+
+
+
+
+}

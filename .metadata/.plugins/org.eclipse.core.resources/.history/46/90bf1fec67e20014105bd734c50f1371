@@ -1,0 +1,208 @@
+package com.wglxy.example.imageareas;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.net.Uri;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.widget.ImageView;
+import android.widget.Toast;
+
+/**
+ * This activity displays an image on the screen. 
+ * The image has three different regions that can be clicked / touched.
+ * When a region is touched, the activity changes the view to show a different
+ * image.
+ *
+ */
+
+public class ImageAreasActivity extends Activity 
+implements View.OnTouchListener 
+{
+
+	/**
+	 * Create the view for the activity.
+	 *
+	 */
+
+	@Override public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.main);
+
+		ImageView iv = (ImageView) findViewById (R.id.image);
+		if (iv != null) {
+			iv.setOnTouchListener (this);
+		}
+
+	}
+
+	/**
+	 * Respond to the user touching the screen.
+	 * Change images to make things appear and disappear from the screen.
+	 *
+	 */    
+
+	public boolean onTouch (View v, MotionEvent ev) 
+	{
+		Log.i("Color", "touched ");
+
+		boolean handledHere = false;
+
+		final int action = ev.getAction();
+
+		final int evX = (int) ev.getX();
+		final int evY = (int) ev.getY();
+		int nextImage = -1;			// resource id of the next image to display
+
+		// If we cannot find the imageView, return.
+		ImageView imageView = (ImageView) v.findViewById (R.id.image);
+		if (imageView == null) return false;
+
+		switch (action) {
+		case MotionEvent.ACTION_DOWN :
+			break;
+
+		case MotionEvent.ACTION_UP :
+			int touchColor = getHotspotColor (R.id.image_areas, evX, evY);
+			ColorTool ct = new ColorTool ();
+			int tolerance = 25;
+			String currentSquare="none";
+			if (ct.closeMatch (Color.parseColor("#846476"), touchColor, tolerance)) {
+				currentSquare = "square1";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (ct.closeMatch (Color.parseColor("#C66B2E"), touchColor, tolerance)) {
+				currentSquare = "square2";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (ct.closeMatch (Color.parseColor("#FFE000"), touchColor, tolerance)) {
+				currentSquare = "square3";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (ct.closeMatch (Color.parseColor("#17AA83"), touchColor, tolerance)) {
+				currentSquare = "square4";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (ct.closeMatch (Color.parseColor("#FFB600"), touchColor, tolerance)) {
+				currentSquare = "square5";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (ct.closeMatch (Color.parseColor("#FF00CF"), touchColor, tolerance)) {
+				currentSquare = "square6";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (ct.closeMatch (Color.parseColor("#EDFF00"), touchColor, tolerance)) {
+				currentSquare = "square7";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (ct.closeMatch (Color.parseColor("#0FEA4C"), touchColor, tolerance)) {
+				currentSquare = "square8";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (ct.closeMatch (Color.parseColor("#0068FF"), touchColor, tolerance)) {
+				currentSquare = "square9";
+				Log.i("Color", "touched "+currentSquare);
+			} 
+			if (ct.closeMatch (Color.parseColor("#00CFFF"), touchColor, tolerance)) {
+				currentSquare = "square10";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (ct.closeMatch (Color.parseColor("#FF0C00"), touchColor, tolerance)) {
+				currentSquare = "square11";
+				Log.i("Color", "touched "+currentSquare);
+			}
+			if (ct.closeMatch (Color.parseColor("#B70BFF"), touchColor, tolerance)) {
+				currentSquare = "square12";
+				Log.i("Color", "touched "+currentSquare);
+			}
+
+
+
+ 
+			// If the next image is the same as the last image, go back to the default.
+			// toast ("Current image: " + currentResource + " next: " + nextImage);
+			handledHere = true; 
+			break;
+
+		default:
+			handledHere = false;
+		} // end switch
+
+
+		return handledHere;
+	}   
+
+	/**
+	 * Resume the activity.
+	 */
+
+	@Override protected void onResume() {
+		super.onResume();
+
+		View v  = findViewById (R.id.wglxy_bar);
+		if (v != null) {
+			Animation anim1 = AnimationUtils.loadAnimation(this, R.anim.fade_in);
+			//anim1.setAnimationListener (new StartActivityAfterAnimation (i));
+			v.startAnimation (anim1);
+		}
+	}
+
+	/**
+	 * Handle a click on the Wglxy views at the bottom.
+	 *
+	 */    
+
+	public void onClickWglxy (View v) {
+		Intent viewIntent = new Intent ("android.intent.action.VIEW", 
+				Uri.parse("http://double-star.appspot.com/blahti/ds-download.html"));
+		startActivity(viewIntent);
+
+	}
+
+
+	/**
+	 */
+	// More methods
+
+	/**
+	 * Get the color from the hotspot image at point x-y.
+	 * 
+	 */
+
+	public int getHotspotColor (int hotspotId, int x, int y) {
+		ImageView img = (ImageView) findViewById (hotspotId);
+		if (img == null) {
+			Log.d ("ImageAreasActivity", "Hot spot image not found");
+			return 0;
+		} else {
+			img.setDrawingCacheEnabled(true); 
+			Bitmap hotspots = Bitmap.createBitmap(img.getDrawingCache()); 
+			if (hotspots == null) {
+				Log.d ("ImageAreasActivity", "Hot spot bitmap was not created");
+				return 0;
+			} else {
+				img.setDrawingCacheEnabled(false);
+				return hotspots.getPixel(x, y);
+			}
+		}
+	}
+
+	/**
+	 * Show a string on the screen via Toast.
+	 * 
+	 * @param msg String
+	 * @return void
+	 */
+
+	public void toast (String msg)
+	{
+		Toast.makeText (getApplicationContext(), msg, Toast.LENGTH_LONG).show ();
+	} // end toast
+
+} // end class
